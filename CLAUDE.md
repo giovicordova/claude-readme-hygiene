@@ -5,6 +5,8 @@ Skill development workfolder for the `claude-readme-hygiene` Claude Code skill.
 ## Structure
 - `skill/SKILL.md` — the skill definition (`~/.claude/skills/claude-readme-hygiene/` → `skill/`)
 - `skill/examples.md` — template examples referenced by SKILL.md
+- `skill/references/claude-md-rules.md` — CLAUDE.md rules, removal criteria, format constraints, and template
+- `skill/references/readme-rules.md` — README.md required sections, quality rules, and scope boundaries
 - `rule/docs-hygiene.md` — companion global rule (`~/.claude/rules/docs-hygiene.md` → `rule/docs-hygiene.md`)
 
 ## Gotchas

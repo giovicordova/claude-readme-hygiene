@@ -2,6 +2,7 @@
 name: claude-readme-hygiene
 argument-hint: "[audit | create | rewrite]"
 description: Audit, create, or rewrite CLAUDE.md and README.md. Ensures CLAUDE.md stays minimal and operator-only (complementing the global ~/.claude/CLAUDE.md without duplicating it), and README is publication-ready for GitHub expert review. Auto-creates either file from templates if missing. Use this instead of claude-md-management when you need both files audited together, the separation test enforced, or either file created from scratch.
+allowed-tools: Read, Glob, Grep, Bash, Edit
 ---
 
 # CLAUDE.md & README.md Hygiene
@@ -36,6 +37,18 @@ Also run proactively when the Coherency Rule (from global CLAUDE.md) triggers af
 
 ---
 
+## Dispatch
+
+Route based on `$ARGUMENTS`:
+
+- **`audit`** (default when no argument given): Run all steps 1–7. Analyze existing files and propose targeted fixes.
+- **`create`**: Run Steps 1–2b and 4 (discover, read global, consult docs, analyze codebase). Skip Step 3. Draft both files from templates in Steps 5–6 using "create" mode. Proceed to Step 7 for confirmation.
+- **`rewrite`**: Run all steps 1–7. Treat existing content as raw input but rebuild each file from scratch rather than patching. The result should read as if written fresh, not edited.
+
+If `$ARGUMENTS` is empty or unrecognized, default to **audit**.
+
+---
+
 ## Workflow
 
 Execute these steps in order. Do not write anything until Step 7.
@@ -59,9 +72,13 @@ Use the `anthropic-docs` MCP to fetch the current official guidance on CLAUDE.md
 
 Extract the official include/exclude table and the loading/scoping rules. Use these as the **authority** when deciding what belongs in CLAUDE.md vs what should be cut. If the official guidance contradicts any rule in this skill, the official guidance wins.
 
+**Fallback:** If the anthropic-docs MCP is unavailable, use the rules in [references/claude-md-rules.md](references/claude-md-rules.md) as the authority instead.
+
 ### Step 3 — Read Project Files
 
 Load full content of all discovered project files (CLAUDE.md, README.md, any @-imports).
+
+*Skipped in `create` mode.*
 
 ### Step 4 — Analyze the Codebase
 
@@ -76,148 +93,23 @@ Read these to build a list of facts Claude can already infer from code:
 
 ### Step 5 — Audit or Draft CLAUDE.md
 
-**If CLAUDE.md exists:** Apply the CLAUDE.md rules below. Produce a line-by-line verdict: keep, remove, or rewrite — with reasoning. Flag any lines that duplicate the global file.
+Apply the rules from [references/claude-md-rules.md](references/claude-md-rules.md).
 
-**If CLAUDE.md does not exist:** Draft one from the Project CLAUDE.md Template below, populated with facts from Step 4.
+- **`audit` mode:** Produce a line-by-line verdict: keep, remove, or rewrite — with reasoning. Flag any lines that duplicate the global file.
+- **`create` mode:** Draft from the Project CLAUDE.md Template in the references file, populated with facts from Step 4.
+- **`rewrite` mode:** Rebuild the file from scratch using existing content as raw input. The result should meet all rules as if newly created.
 
 ### Step 6 — Audit or Draft README.md
 
-**If README.md exists:** Apply the README.md rules below. Note missing required sections, broken links, quality violations.
+Apply the rules from [references/readme-rules.md](references/readme-rules.md).
 
-**If README.md does not exist:** Draft one from the README.md Rules below, populated with facts from Step 4.
+- **`audit` mode:** Note missing required sections, broken links, quality violations.
+- **`create` mode:** Draft from the README rules, populated with facts from Step 4.
+- **`rewrite` mode:** Rebuild the file from scratch. Preserve accurate information but restructure and rewrite for clarity.
 
 ### Step 7 — Show Diffs and Confirm
 
 Present a clear diff for each file (or the full draft for new files). Request explicit confirmation before writing any changes.
-
----
-
-## Project CLAUDE.md Rules
-
-Project CLAUDE.md is a **terse, machine-readable operator file**. It is never read by humans visiting the repo. It **inherits all behavior from the global `~/.claude/CLAUDE.md`** and must only contain project-specific additions or overrides.
-
-### What belongs here (keep/add only if):
-
-Per official Anthropic docs, CLAUDE.md should contain:
-
-- Bash commands Claude can't guess (build, test, lint, dev server for THIS project).
-- Code style rules that differ from defaults and aren't enforced by linter/formatter config.
-- Testing instructions and preferred test runners.
-- Repository etiquette (branch naming, PR conventions) specific to this project.
-- Architectural decisions specific to this project.
-- Developer environment quirks (required env vars, local services).
-- Common gotchas or non-obvious behaviors ("this file looks unused but is loaded dynamically").
-- `@path/to/file` import pointers for deferred context loading.
-- Explicit **overrides** of a global CLAUDE.md rule (e.g., "Override: no auto-commits in this project — we use staged PRs").
-
-### Remove a line if any condition is true:
-
-Per official Anthropic docs, CLAUDE.md should NOT contain:
-
-- Anything Claude can figure out by reading code (inferable from `package.json`, CI config, linter config, `tsconfig.json`, etc.).
-- Standard language conventions Claude already knows.
-- Detailed API documentation (link to docs instead).
-- Information that changes frequently.
-- Long explanations or tutorials.
-- File-by-file descriptions of the codebase.
-- Self-evident practices like "write clean code".
-
-Additional removal criteria specific to this skill:
-
-- It duplicates or restates ANYTHING from the global `~/.claude/CLAUDE.md` (communication style, git format, error recovery, safety boundaries, or any behavioral rule).
-- It describes project purpose, features, installation, or usage (that belongs in README).
-- It is a section header or prose paragraph with no actionable rule inside.
-
-### Format constraints:
-
-- **Target: ~30 lines** for a typical single-package project; ~60 lines for a complex monorepo. Anthropic recommends under ~200 lines absolute max — anything longer causes Claude to ignore instructions.
-- Imperative, terse style: `Run \`npm test\` before committing.` NOT `You should always make sure to run the test suite before any commit.`
-- Bullet points or short labeled sections only. Zero prose paragraphs.
-- No README-style sections: no Overview, Features, Architecture, or Getting Started headers.
-- If content grows past the target, move reference material to skills or `.claude/rules/` files (not into CLAUDE.md).
-
----
-
-## Project CLAUDE.md Template
-
-Use this template when creating a new CLAUDE.md. Remove any section that has nothing project-specific to say. An empty section is worse than no section.
-
-```markdown
-# Project: [Name]
-
-[One sentence: what this project does — for Claude's context, not human onboarding]
-
-## Stack
-- [Language/framework/runtime]
-- [Key dependencies that affect how code should be written]
-- [Database/services/external APIs]
-
-## Commands
-- dev: `[command]`
-- test: `[command]`
-- lint: `[command]`
-- build: `[command]`
-
-## Structure
-- `src/` — [what's in here]
-- `lib/` — [what's in here]
-- [any non-obvious folder or file that Claude needs to know about]
-
-## Conventions
-- [Naming patterns, state management approach, etc.]
-- [Anything Claude would get wrong without being told]
-
-## Gotchas
-- [Known quirks, workarounds, things that look wrong but aren't]
-- [Files that look unused but are loaded dynamically]
-- [APIs or services with unexpected behavior]
-
-## Source-of-Truth Docs
-- [List files Claude must read before major changes and update after structural changes]
-- [e.g., `.planning/` folder if using GSD workflow]
-
-## Global Overrides
-- [Only if something from ~/.claude/CLAUDE.md doesn't apply to this project]
-- [e.g., "Override: no auto-commits — this project uses staged PRs"]
-```
-
-For worked examples, see [examples.md](examples.md).
-
----
-
-## README.md Rules
-
-README is a **human-facing public document**. A developer unfamiliar with the project must be able to install and use it within 2 minutes of reading.
-
-### Required sections (in this order):
-
-1. **Title + tagline** — `# ProjectName` then one sentence: what it is and who it is for.
-2. **Badges** (recommended) — CI status, version, license, coverage.
-3. **Overview** — 2-4 sentences: problem solved, approach, target user.
-4. **Installation** — exact copy-pasteable commands; note OS requirements.
-5. **Usage** — at least one realistic, runnable example with a code block.
-6. **Configuration** (if applicable) — env vars or key options as a table with columns: Name | Default | Description.
-7. **Contributing** — how to run tests, branch naming, PR expectations.
-8. **License** — one line + link or badge.
-
-### Quality rules:
-
-- Every code block must have a language tag (` ```bash `, ` ```ts `, etc.).
-- Verify all local markdown links resolve to files that actually exist.
-- Use second person ("you") and active voice throughout.
-- Describe behaviour and interface, not internal implementation.
-- No Claude-specific instructions, no session-scoped notes, no internal tooling references.
-- No placeholder sections (`## Contributing — TODO`). Either write it or omit it.
-
-### What belongs in README that does NOT belong in CLAUDE.md:
-
-- Project description and features (for humans discovering the project)
-- Installation and setup instructions
-- Usage examples and API documentation
-- Contributing guidelines
-- License information
-- Screenshots, badges, links
-- Architecture overview (if useful for human contributors)
 
 ---
 
