@@ -10,12 +10,16 @@ description: Audit, create, or rewrite CLAUDE.md and README.md. Ensures CLAUDE.m
 
 These two files serve fundamentally different audiences and must never overlap.
 
-| File | Audience | Purpose |
-|------|----------|---------|
-| `CLAUDE.md` (project) | Claude Code agent | Operator config: only what Claude cannot infer from code alone AND what isn't already in the global `~/.claude/CLAUDE.md` |
-| `README.md` | Human developers | Publication: the front page of the repo on GitHub — install, use, contribute |
+| File | Audience | Purpose | Loaded by |
+|------|----------|---------|-----------|
+| `CLAUDE.md` (project) | Claude Code agent | Persistent context loaded every session — only what Claude cannot infer from code AND what isn't already in the global `~/.claude/CLAUDE.md` | Claude Code at session start, automatically |
+| `README.md` | Human developers | The front page of the repo on GitHub — install, use, contribute | Humans visiting the repo |
+
+Per Anthropic's official docs, CLAUDE.md is **"persistent context Claude sees every session"** — coding standards, workflows, project architecture. It is context, not enforced configuration. The more concise it is, the more reliably Claude follows it. README.md is a human-facing document that has no effect on Claude's behavior.
 
 **The inheritance model:** Think of it like a mixing console. The global `~/.claude/CLAUDE.md` is the master bus — communication style, error recovery, git conventions, safety boundaries, coherency rules. The project `CLAUDE.md` is a channel strip — it only adds what's unique to *this specific project*. Never duplicate the master bus on a channel strip.
+
+**The official litmus test for CLAUDE.md content** (from Anthropic docs): For each line, ask *"Would removing this cause Claude to make mistakes?"* If not, cut it.
 
 ---
 
@@ -45,6 +49,15 @@ Note which files exist and which are missing.
 ### Step 2 — Read Global CLAUDE.md
 
 Read `~/.claude/CLAUDE.md` to understand what rules are already inherited globally. Everything in the global file is **off-limits for the project CLAUDE.md** — do not duplicate, restate, or paraphrase any global rule.
+
+### Step 2b — Consult Official CLAUDE.md Guidance
+
+Use the `anthropic-docs` MCP to fetch the current official guidance on CLAUDE.md:
+
+1. `search_anthropic_docs` → query: `"CLAUDE.md best practices"`, source: `code`
+2. `get_doc_page` → path from results, section: `"Write an effective CLAUDE.md"`
+
+Extract the official include/exclude table and the loading/scoping rules. Use these as the **authority** when deciding what belongs in CLAUDE.md vs what should be cut. If the official guidance contradicts any rule in this skill, the official guidance wins.
 
 ### Step 3 — Read Project Files
 
@@ -85,28 +98,43 @@ Project CLAUDE.md is a **terse, machine-readable operator file**. It is never re
 
 ### What belongs here (keep/add only if):
 
-- It is a Bash command Claude needs to know for THIS project (build, test, lint, dev server).
-- It is a code style rule NOT already enforced by an existing linter/formatter config in the repo.
-- It is a project-specific convention Claude would get wrong without it (naming patterns, state management approach, architectural patterns in use).
-- It is a known gotcha or landmine specific to this codebase ("this file looks unused but is loaded dynamically", "this API returns XML not JSON").
-- It is a `@path/to/file` import pointer for deferred context loading.
-- It is an explicit **override** of a global CLAUDE.md rule (e.g., "Override: no auto-commits in this project — we use staged PRs").
-- It identifies which files/folders are the key structural landmarks of this project.
+Per official Anthropic docs, CLAUDE.md should contain:
+
+- Bash commands Claude can't guess (build, test, lint, dev server for THIS project).
+- Code style rules that differ from defaults and aren't enforced by linter/formatter config.
+- Testing instructions and preferred test runners.
+- Repository etiquette (branch naming, PR conventions) specific to this project.
+- Architectural decisions specific to this project.
+- Developer environment quirks (required env vars, local services).
+- Common gotchas or non-obvious behaviors ("this file looks unused but is loaded dynamically").
+- `@path/to/file` import pointers for deferred context loading.
+- Explicit **overrides** of a global CLAUDE.md rule (e.g., "Override: no auto-commits in this project — we use staged PRs").
 
 ### Remove a line if any condition is true:
 
-- It duplicates or restates ANYTHING from the global `~/.claude/CLAUDE.md` (communication style, git format, error recovery, safety boundaries, ripple/rewrite rules, coherency rules, the "Who I Am" section, or any behavioral rule).
+Per official Anthropic docs, CLAUDE.md should NOT contain:
+
+- Anything Claude can figure out by reading code (inferable from `package.json`, CI config, linter config, `tsconfig.json`, etc.).
+- Standard language conventions Claude already knows.
+- Detailed API documentation (link to docs instead).
+- Information that changes frequently.
+- Long explanations or tutorials.
+- File-by-file descriptions of the codebase.
+- Self-evident practices like "write clean code".
+
+Additional removal criteria specific to this skill:
+
+- It duplicates or restates ANYTHING from the global `~/.claude/CLAUDE.md` (communication style, git format, error recovery, safety boundaries, or any behavioral rule).
 - It describes project purpose, features, installation, or usage (that belongs in README).
-- It restates something already inferable from `package.json`, CI config, or linter config (e.g., "use TypeScript" when `tsconfig.json` exists).
-- It is generic best-practice advice Claude already follows by default or via the global file.
 - It is a section header or prose paragraph with no actionable rule inside.
 
 ### Format constraints:
 
-- **Hard limit: ~30 lines** for a typical single-package project; ~60 lines for a complex monorepo.
+- **Target: ~30 lines** for a typical single-package project; ~60 lines for a complex monorepo. Anthropic recommends under ~200 lines absolute max — anything longer causes Claude to ignore instructions.
 - Imperative, terse style: `Run \`npm test\` before committing.` NOT `You should always make sure to run the test suite before any commit.`
 - Bullet points or short labeled sections only. Zero prose paragraphs.
 - No README-style sections: no Overview, Features, Architecture, or Getting Started headers.
+- If content grows past the target, move reference material to skills or `.claude/rules/` files (not into CLAUDE.md).
 
 ---
 
